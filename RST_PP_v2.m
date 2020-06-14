@@ -22,7 +22,7 @@ function varargout = RST_PP_v2(varargin)
 
 % Edit the above text to modify the response to help RST_PP_v2
 
-% Last Modified by GUIDE v2.5 11-Jun-2020 02:14:30
+% Last Modified by GUIDE v2.5 13-Jun-2020 20:41:50
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -52,7 +52,18 @@ function convert2subsys(sys)
   bh = [bh get_param(blocks{11}, 'handle')];
   bh = [bh get_param(blocks{13}, 'handle')];
   Simulink.BlockDiagram.createSubsystem(bh);
-
+function convert2wholesys(sys)
+  blocks = find_system(sys, 'SearchDepth', 1);
+  bh = [];
+  
+  bh = [bh get_param(blocks{2}, 'handle')];
+  bh = [bh get_param(blocks{3}, 'handle')];
+  bh = [bh get_param(blocks{4}, 'handle')];
+  bh = [bh get_param(blocks{8}, 'handle')];
+  bh = [bh get_param(blocks{11}, 'handle')];
+  bh = [bh get_param(blocks{12}, 'handle')];
+  bh = [bh get_param(blocks{13}, 'handle')];
+  Simulink.BlockDiagram.createSubsystem(bh);
 
 % --- Executes just before RST_PP_v2 is made visible.
 function RST_PP_v2_OpeningFcn(hObject, eventdata, handles, varargin)
@@ -814,6 +825,9 @@ fprintf(fileID3, '];\n');
 fprintf(fileID3, 'extern const float B[');%Bp
 fprintf(fileID3, num2str(length(Bp)));
 fprintf(fileID3, '];\n');
+fprintf(fileID3, 'extern const float Ts[');%Ts
+fprintf(fileID3, num2str(length(Ts)));
+fprintf(fileID3, '];\n');
 fprintf(fileID3, '#endif');
 fclose(fileID3);
 %Generating cpp file 'RST.cpp':
@@ -821,23 +835,33 @@ fileID4 = fopen('AB.c','w');
 fprintf(fileID4, '#include\"AB.h\"\n');
 fclose(fileID4);
 fileID4 = fopen('AB.c','a');
-fprintf(fileID4, 'const float A[]=\n');%Ap
-fprintf(fileID4, '{\n');
+fprintf(fileID4, 'const float A[]=\t');%Ap
+fprintf(fileID4, '{\t');
 for k=1:length(Ap)
      if k==length(Ap)
-      fprintf(fileID4, [num2str(Ap(k)) '\n']);
+      fprintf(fileID4, [num2str(Ap(k)) '\t']);
     else 
-       fprintf(fileID4, [num2str(Ap(k)) ',\n']);
+       fprintf(fileID4, [num2str(Ap(k)) ',\t']);
     end
 end
 fprintf(fileID4, '}\n');
-fprintf(fileID4, 'const float B[]=\n');%Bp
-fprintf(fileID4, '{\n');
+fprintf(fileID4, 'const float B[]=\t');%Bp
+fprintf(fileID4, '{\t');
 for k=1:length(Bp)
      if k==length(Bp)
-      fprintf(fileID4, [num2str(Bp(k)) '\n']);
+      fprintf(fileID4, [num2str(Bp(k)) '\t']);
     else 
-       fprintf(fileID4, [num2str(Bp(k)) ',\n']);
+       fprintf(fileID4, [num2str(Bp(k)) ',\t']);
+    end
+end
+fprintf(fileID4, '}\n');
+fprintf(fileID4, 'const float Ts[]=\t');%Ts
+fprintf(fileID4, '{\t');
+for k=1:length(Ts)
+     if k==length(Ts)
+      fprintf(fileID4, [num2str(Ts(k)) '\t']);
+    else 
+       fprintf(fileID4, [num2str(Ts(k)) ',\t']);
     end
 end
 fprintf(fileID4, '}\n');
@@ -1088,7 +1112,7 @@ open_system(sys);
 
 
 % --- Executes on button press in pushbutton4.
-function pushbutton4_Callback(hObject, eventdata, handles)%geberate C code
+function pushbutton4_Callback(hObject, eventdata, handles)%generate C code
 % hObject    handle to pushbutton4 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1203,9 +1227,19 @@ block_R=add_block('simulink/Discrete/Discrete Filter', [name '/R(z)'], 'position
 %all=get(get_param(block_R, 'handle'))
 x=x-195;%R width
 add_line(name, 'Sum2/1', 'R(z)/1');
-
 x=x-195;
 add_line(name, 'R(z)/1)', 'Sum1/2');
+if get(handles.checkbox5, 'value')
+convert2wholesys(name);
+load_system(name);
+cs=getActiveConfigSet(name);
+cs.set_param('Solver','FixedStepauto');
+switchTarget(cs,'ert.tlc',[]);
+set_param(name,'ProdHWDeviceType','NXP->Cortex—M4');
+open_system(sys);
+system=[name '/Subsystem'];
+rtwbuild(system);
+else
 convert2subsys(name);
 load_system(name);
 cs=getActiveConfigSet(name);
@@ -1215,5 +1249,14 @@ set_param(name,'ProdHWDeviceType','NXP->Cortex—M4');
 open_system(sys);
 system=[name '/Subsystem'];
 rtwbuild(system);
-
+end
 %clear;
+
+
+% --- Executes on button press in checkbox5.
+function checkbox5_Callback(hObject, eventdata, handles)
+% hObject    handle to checkbox5 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of checkbox5
